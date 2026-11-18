@@ -34,6 +34,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Build static site
         run: npm run build
 
