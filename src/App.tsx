@@ -1,0 +1,139 @@
+const PLANNED_MODULES = [
+  {
+    id: 'module-gf-simulator',
+    index: '01',
+    title: 'Gradient Factor & Profile Explorer',
+    description:
+      'Adjust GF Low and GF High interactively to observe real-time shifts in first-stop depth, total decompression obligation, and no-decompression limits (NDL).',
+  },
+  {
+    id: 'module-compartment-mvalues',
+    index: '02',
+    title: '16-Compartment Tissue & M-Value Plots',
+    description:
+      'Inspect inert gas loading across fast and slow compartments alongside ambient pressure and Bühlmann M-value supersaturation lines.',
+  },
+  {
+    id: 'module-table-generator',
+    index: '03',
+    title: 'ZH-L16C Dive Table Generator',
+    description:
+      'Generate complete depth-by-time NDL and decompression schedules for air and nitrox mixes under configurable gradient factor pairs and ascent rates.',
+  },
+  {
+    id: 'module-table-comparison',
+    index: '04',
+    title: 'Published Dive Table Comparison',
+    description:
+      'Compare ZH-L16C schedules side by side against established reference tables (such as US Navy, PADI RDP, and classical Bühlmann tables) to see where conservatism diverges.',
+  },
+] as const
+
+function App() {
+  return (
+    <div className="page-shell">
+      <header className="site-header" id="site-header">
+        <div className="brand-identity">
+          <span className="brand-name">ZH-L16C Analysis</span>
+          <span className="brand-tag">Bühlmann + GF</span>
+        </div>
+        <a
+          id="github-repo-link"
+          className="repo-link"
+          href="https://github.com/matthewlai/ZHL16C_Analysis"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View on GitHub
+        </a>
+      </header>
+
+      <main className="main-content" id="main-content">
+        <section className="hero-section" aria-labelledby="page-title">
+          <h1 className="hero-title" id="page-title">
+            Interactive Bühlmann ZH-L16C &amp; Dive Table Explorer
+          </h1>
+          <p className="hero-lead">
+            An upcoming interactive workbench for exploring how gradient
+            factors, ascent rates, and breathing mixes shape no-decompression
+            limits, decompression stops, and generated dive tables—and how
+            ZH-L16C compares against established reference tables.
+          </p>
+          <div className="status-banner" id="placeholder-status" role="status">
+            <span className="status-label">Placeholder Active</span>
+            <span>
+              GitHub Pages environment initialized. Interactive simulation and
+              table comparison tools are in development.
+            </span>
+          </div>
+        </section>
+
+        <section
+          className="spec-strip"
+          id="model-parameters"
+          aria-label="ZH-L16C Baseline Model Parameters"
+        >
+          <div className="spec-cell">
+            <span className="spec-term">Algorithm</span>
+            <span className="spec-value">ZH-L16C</span>
+            <span className="spec-note">Computer-conservatism M-value set</span>
+          </div>
+          <div className="spec-cell">
+            <span className="spec-term">Compartments</span>
+            <span className="spec-value">16 N₂ / He</span>
+            <span className="spec-note"> Parallel Haldane tissue model</span>
+          </div>
+          <div className="spec-cell">
+            <span className="spec-term">N₂ Half-Times</span>
+            <span className="spec-value">4.0 – 635.0 min</span>
+            <span className="spec-note">Compartments 1 (1b) through 16</span>
+          </div>
+          <div className="spec-cell">
+            <span className="spec-term">Conservatism</span>
+            <span className="spec-value">GF Low / GF High</span>
+            <span className="spec-note">Erik Baker linear M-value scaling</span>
+          </div>
+        </section>
+
+        <section
+          className="roadmap-section"
+          id="planned-modules"
+          aria-labelledby="roadmap-heading"
+        >
+          <h2 className="section-heading" id="roadmap-heading">
+            Planned Interactive Modules
+          </h2>
+          <ul className="module-list">
+            {PLANNED_MODULES.map((mod) => (
+              <li className="module-item" key={mod.id} id={mod.id}>
+                <span className="module-index">{mod.index}</span>
+                <h3 className="module-title">{mod.title}</h3>
+                <p className="module-description">{mod.description}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          className="disclaimer-box"
+          id="safety-disclaimer"
+          aria-label="Safety Disclaimer"
+        >
+          <strong>Educational &amp; Analytical Use Only:</strong> This project
+          is built to visualize mathematical decompression models and compare
+          published tables. Never use profiles or schedules generated by this
+          site to plan real-world dives.
+        </section>
+      </main>
+
+      <footer className="site-footer" id="site-footer">
+        <span>ZH-L16C Analysis &middot; Licensed under Apache-2.0</span>
+        <span>
+          Deployed via <code>GitHub Pages</code>
+        </span>
+      </footer>
+    </div>
+  )
+}
+
+export default App
