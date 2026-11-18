@@ -1392,3 +1392,233 @@ export function calculateNdlCurve(rawInput: NdlCurveInput): NdlCurveResult {
   }
 }
 
+export interface DecoBottomTimeCurveInput {
+  /** Target bottom depth in meters (> 0) */
+  readonly depthMeters: number
+  /** Start of bottom time sweep in minutes (> 0) */
+  readonly minBottomTimeMinutes: number
+  /** End of bottom time sweep in minutes (>= minBottomTimeMinutes) */
+  readonly maxBottomTimeMinutes: number
+  /** Bottom time sweep step in minutes (> 0, e.g. 1) */
+  readonly bottomTimeStepMinutes: number
+  /** Breathing gas O2 percentage (21 to 100) */
+  readonly o2Percent: number
+  /** Gradient Factor Low percentage (1 to 100) */
+  readonly gfLowPercent: number
+  /** Gradient Factor High percentage (1 to 100) */
+  readonly gfHighPercent: number
+  /** Ascent rate in m/min (> 0) */
+  readonly ascentRateMPerMin: number
+  /** Descent rate in m/min (> 0) */
+  readonly descentRateMPerMin: number
+  /** Decompression stop step interval in meters (> 0, e.g. 3) */
+  readonly decoStepSizeMeters: number
+  /** Shallowest mandatory decompression stop depth in meters (> 0, e.g. 3 or 6) */
+  readonly lastStopDepthMeters: number
+  /** ZH-L16C Compartment 1 variant ('ZHL16C_1B' = 4.0 min default, 'ZHL16C_1' = 5.0 min) */
+  readonly variant?: Zhl16Variant
+  /** Atmospheric surface pressure in bar (default 1.01325 bar) */
+  readonly surfacePressureBar?: number
+  /** Hydrostatic pressure gradient in bar/m (default 0.10 bar/m) */
+  readonly barPerMeter?: number
+  /** Alveolar water vapor pressure in bar (default 0.0627 bar) */
+  readonly waterVaporPressureBar?: number
+  /** Surface equilibrium N2 fraction before the dive (default 0.79) */
+  readonly surfaceFN2?: number
+  /** GF Low ramp anchor strategy (default 'continuous_ceiling') */
+  readonly gfAnchorMode?: GfAnchorMode
+}
+
+export interface DecoBottomTimePoint {
+  /** Requested bottom time in minutes */
+  readonly bottomTimeMinutes: number
+  /** Effective runtime at start of ascent (min) */
+  readonly effectiveBottomTimeMinutes: number
+  /** Total mandatory decompression stop hold duration (min) */
+  readonly totalDecoStopMinutes: number
+  /** Time To Surface (ascent transit + mandatory stops) (min) */
+  readonly ttsMinutes: number
+  /** Total dive runtime from t=0 to surface (min) */
+  readonly totalRuntimeMinutes: number
+  /** First mandatory stop depth in meters, or null if NDL */
+  readonly firstStopDepthMeters: number | null
+  /** Mandatory stops in execution order */
+  readonly decoStops: readonly DecoStop[]
+  /** Stop durations keyed by stop depth in meters */
+  readonly stopDurationsByDepth: Readonly<Record<number, number>>
+}
+
+export interface DecoBottomTimeCurveResult {
+  readonly input: Required<DecoBottomTimeCurveInput>
+  readonly points: readonly DecoBottomTimePoint[]
+  /** Sorted unique stop depths (shallowest to deepest, m) encountered across the sweep */
+  readonly stopDepthsMeters: readonly number[]
+  /** Whole-minute NDL at target depth, or null if unlimited */
+  readonly ndlMinutes: number | null
+  /** Inspired O2 partial pressure at target bottom depth (bar) */
+  readonly bottomPpO2Bar: number
+  /** Maximum Operating Depth (m) for 1.4 bar ppO2 */
+  readonly mod14Meters: number
+  /** Maximum Operating Depth (m) for 1.6 bar ppO2 */
+  readonly mod16Meters: number
+}
+
+/**
+ * Compute mandatory decompression durations broken down by stop depth across a sweep
+ * of bottom times `[minBottomTimeMinutes, maxBottomTimeMinutes]` at `depthMeters`.
+ */
+export function calculateDecoVsBottomTimeCurve(
+  rawInput: DecoBottomTimeCurveInput,
+): DecoBottomTimeCurveResult {
+  if (!Number.isFinite(rawInput.minBottomTimeMinutes) || rawInput.minBottomTimeMinutes <= 0) {
+    throw new RangeError('minBottomTimeMinutes must be greater than 0')
+  }
+  if (
+    !Number.isFinite(rawInput.maxBottomTimeMinutes) ||
+    rawInput.maxBottomTimeMinutes < rawInput.minBottomTimeMinutes
+  ) {
+    throw new RangeError('maxBottomTimeMinutes must be >= minBottomTimeMinutes')
+  }
+  if (!Number.isFinite(rawInput.bottomTimeStepMinutes) || rawInput.bottomTimeStepMinutes <= 0) {
+    throw new RangeError('bottomTimeStepMinutes must be greater than 0')
+  }
+
+  const cfg = normalizeInput({
+    depthMeters: rawInput.depthMeters,
+    bottomTimeMinutes: rawInput.minBottomTimeMinutes,
+    o2Percent: rawInput.o2Percent,
+    gfLowPercent: rawInput.gfLowPercent,
+    gfHighPercent: rawInput.gfHighPercent,
+    ascentRateMPerMin: rawInput.ascentRateMPerMin,
+    descentRateMPerMin: rawInput.descentRateMPerMin,
+    decoStepSizeMeters: rawInput.decoStepSizeMeters,
+    lastStopDepthMeters: rawInput.lastStopDepthMeters,
+    variant: rawInput.variant,
+    surfacePressureBar: rawInput.surfacePressureBar,
+    barPerMeter: rawInput.barPerMeter,
+    waterVaporPressureBar: rawInput.waterVaporPressureBar,
+    surfaceFN2: rawInput.surfaceFN2,
+    gfAnchorMode: rawInput.gfAnchorMode,
+  })
+
+  const fullInput: Required<DecoBottomTimeCurveInput> = {
+    ...cfg.input,
+    minBottomTimeMinutes: rawInput.minBottomTimeMinutes,
+    maxBottomTimeMinutes: rawInput.maxBottomTimeMinutes,
+    bottomTimeStepMinutes: rawInput.bottomTimeStepMinutes,
+  }
+
+  const {
+    depthMeters,
+    descentRateMPerMin,
+    ascentRateMPerMin,
+    surfacePressureBar,
+    barPerMeter,
+    waterVaporPressureBar,
+    surfaceFN2,
+  } = cfg.input
+
+  const descentDurationMinutes = depthMeters / descentRateMPerMin
+  const initialState = createSurfaceTissueState(
+    surfacePressureBar,
+    surfaceFN2,
+    waterVaporPressureBar,
+  )
+  const bottomBar = depthToPressure(depthMeters, surfacePressureBar, barPerMeter)
+  const afterDescentState = stepLinearRamp(
+    initialState,
+    surfacePressureBar,
+    bottomBar,
+    cfg.fN2,
+    descentDurationMinutes,
+    cfg.compartments,
+    waterVaporPressureBar,
+  )
+
+  const points: DecoBottomTimePoint[] = []
+  const stopDepthSet = new Set<number>()
+  const ascentOnlyTransitMinutes = depthMeters / ascentRateMPerMin
+
+  const maxSteps = 500
+  let stepCount = 0
+
+  for (
+    let bt = fullInput.minBottomTimeMinutes;
+    bt <= fullInput.maxBottomTimeMinutes + EPSILON && stepCount < maxSteps;
+    bt = Math.round((bt + fullInput.bottomTimeStepMinutes) * 1e6) / 1e6, stepCount++
+  ) {
+    const effectiveBottomTimeMinutes = Math.max(bt, descentDurationMinutes)
+    const flatBottomDurationMinutes = Math.max(
+      0,
+      effectiveBottomTimeMinutes - descentDurationMinutes,
+    )
+
+    const afterBottomState = stepConstantDepth(
+      afterDescentState,
+      bottomBar,
+      cfg.fN2,
+      flatBottomDurationMinutes,
+      cfg.compartments,
+      waterVaporPressureBar,
+    )
+
+    const bottomGfLowDepth = pressureToDepth(
+      evaluateTissueCeiling(afterBottomState, cfg.compartments, cfg.gfLow).ceilingPressureBar,
+      surfacePressureBar,
+      barPerMeter,
+    )
+
+    const { decoStops: relativeStops } = computeDecompressionAscent(
+      afterBottomState,
+      bottomGfLowDepth,
+      cfg,
+    )
+
+    const decoStops: DecoStop[] = relativeStops.map((s) => ({
+      ...s,
+      arrivalRuntimeMinutes: effectiveBottomTimeMinutes + s.arrivalRuntimeMinutes,
+      departureRuntimeMinutes: effectiveBottomTimeMinutes + s.departureRuntimeMinutes,
+    }))
+
+    const stopDurationsByDepth: Record<number, number> = {}
+    let totalDecoStopMinutes = 0
+    for (const stop of decoStops) {
+      stopDurationsByDepth[stop.depthMeters] =
+        (stopDurationsByDepth[stop.depthMeters] ?? 0) + stop.durationMinutes
+      totalDecoStopMinutes += stop.durationMinutes
+      stopDepthSet.add(stop.depthMeters)
+    }
+
+    const ttsMinutes = ascentOnlyTransitMinutes + totalDecoStopMinutes
+    const totalRuntimeMinutes = effectiveBottomTimeMinutes + ttsMinutes
+
+    points.push({
+      bottomTimeMinutes: bt,
+      effectiveBottomTimeMinutes,
+      totalDecoStopMinutes,
+      ttsMinutes,
+      totalRuntimeMinutes,
+      firstStopDepthMeters: decoStops.length > 0 ? decoStops[0].depthMeters : null,
+      decoStops,
+      stopDurationsByDepth,
+    })
+  }
+
+  const stopDepthsMeters = Array.from(stopDepthSet).sort((a, b) => a - b)
+  const ndlMinutes = calculateNdlMinutes(cfg.input)
+  const bottomPpO2Bar = bottomBar * cfg.fO2
+  const mod14Meters = pressureToDepth(1.4 / cfg.fO2, surfacePressureBar, barPerMeter)
+  const mod16Meters = pressureToDepth(1.6 / cfg.fO2, surfacePressureBar, barPerMeter)
+
+  return {
+    input: fullInput,
+    points,
+    stopDepthsMeters,
+    ndlMinutes,
+    bottomPpO2Bar,
+    mod14Meters,
+    mod16Meters,
+  }
+}
+
+

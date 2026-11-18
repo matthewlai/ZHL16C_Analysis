@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { DecoBottomTimeView } from './components/DecoBottomTimeView'
 import { DecoScheduleTable } from './components/DecoScheduleTable'
 import { DiveProfileChart } from './components/DiveProfileChart'
 import { NdlCurveView } from './components/NdlCurveView'
@@ -7,7 +8,7 @@ import type { WaterDensityId, Zhl16Variant } from './engine/constants'
 import { depthToPressure, planDive } from './engine/zhl16c'
 import type { GfAnchorMode } from './engine/zhl16c'
 
-type ActiveTab = 'profile' | 'ndl'
+type ActiveTab = 'profile' | 'ndl' | 'deco_bt'
 
 const GAS_PRESETS = [
   { label: 'Air 21%', o2: 21 },
@@ -157,6 +158,17 @@ function App() {
             onClick={() => setActiveTab('ndl')}
           >
             NDL vs. Depth Curve
+          </button>
+          <button
+            id="tab-btn-deco-bt"
+            role="tab"
+            type="button"
+            aria-selected={activeTab === 'deco_bt'}
+            aria-controls="tabpanel-deco-bt"
+            className={`tab-button${activeTab === 'deco_bt' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('deco_bt')}
+          >
+            Deco vs. Bottom Time
           </button>
         </nav>
 
@@ -679,7 +691,7 @@ function App() {
             </div>
           </div>
           </div>
-        ) : (
+        ) : activeTab === 'ndl' ? (
           <div
             id="tabpanel-ndl"
             role="tabpanel"
@@ -698,6 +710,38 @@ function App() {
               onChangeVariant={setVariant}
               waterDensityId={waterDensityId}
               onChangeWaterDensityId={setWaterDensityId}
+              onInspectInProfilePlanner={handleInspectFromNdl}
+            />
+          </div>
+        ) : (
+          <div
+            id="tabpanel-deco-bt"
+            role="tabpanel"
+            aria-labelledby="tab-btn-deco-bt"
+          >
+            <DecoBottomTimeView
+              depthMeters={depthMeters}
+              onChangeDepthMeters={setDepthMeters}
+              o2Percent={o2Percent}
+              onChangeO2Percent={setO2Percent}
+              gfLowPercent={gfLowPercent}
+              onChangeGfLowPercent={setGfLowPercent}
+              gfHighPercent={gfHighPercent}
+              onChangeGfHighPercent={setGfHighPercent}
+              ascentRateMPerMin={ascentRateMPerMin}
+              onChangeAscentRateMPerMin={setAscentRateMPerMin}
+              descentRateMPerMin={descentRateMPerMin}
+              onChangeDescentRateMPerMin={setDescentRateMPerMin}
+              decoStepSizeMeters={decoStepSizeMeters}
+              onChangeDecoStepSizeMeters={setDecoStepSizeMeters}
+              lastStopDepthMeters={lastStopDepthMeters}
+              onChangeLastStopDepthMeters={setLastStopDepthMeters}
+              variant={variant}
+              onChangeVariant={setVariant}
+              waterDensityId={waterDensityId}
+              onChangeWaterDensityId={setWaterDensityId}
+              gfAnchorMode={gfAnchorMode}
+              onChangeGfAnchorMode={setGfAnchorMode}
               onInspectInProfilePlanner={handleInspectFromNdl}
             />
           </div>

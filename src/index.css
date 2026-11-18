@@ -649,6 +649,20 @@ body {
   height: 0;
 }
 
+.legend-swatch.swatch-tts {
+  border-top: 2px dashed var(--text-primary);
+  opacity: 0.78;
+  height: 0;
+}
+
+.legend-color-box {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 .chart-legend-below {
   margin-bottom: 0.75rem;
 }

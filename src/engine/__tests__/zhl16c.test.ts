@@ -8,6 +8,7 @@ import {
   ZHL16C_1_COMPARTMENTS,
 } from '../constants'
 import {
+  calculateDecoVsBottomTimeCurve,
   calculateNdlCurve,
   calculateNdlMinutes,
   compartmentCeilingPressure,
@@ -665,4 +666,86 @@ describe('NDL vs depth curve calculation', () => {
     expect(() => calculateNdlCurve({ ...base, depthStepMeters: 0 })).toThrow(RangeError)
   })
 })
+
+describe('Deco vs bottom time curve calculation', () => {
+  it('matches planDive point-by-point and accurately breaks down stop durations by depth', () => {
+    const sweep = calculateDecoVsBottomTimeCurve({
+      depthMeters: 30,
+      minBottomTimeMinutes: 10,
+      maxBottomTimeMinutes: 40,
+      bottomTimeStepMinutes: 5,
+      o2Percent: 21,
+      gfLowPercent: 30,
+      gfHighPercent: 70,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+      decoStepSizeMeters: 3,
+      lastStopDepthMeters: 3,
+    })
+
+    expect(sweep.points.length).toBe(7)
+    expect(sweep.ndlMinutes).toBeGreaterThanOrEqual(10)
+    expect(sweep.ndlMinutes).toBeLessThan(20)
+    expect(sweep.stopDepthsMeters).toEqual([...sweep.stopDepthsMeters].sort((a, b) => a - b))
+
+    let prevDeco = 0
+    for (const pt of sweep.points) {
+      const single = planDive({
+        depthMeters: 30,
+        bottomTimeMinutes: pt.bottomTimeMinutes,
+        o2Percent: 21,
+        gfLowPercent: 30,
+        gfHighPercent: 70,
+        ascentRateMPerMin: 10,
+        descentRateMPerMin: 20,
+        decoStepSizeMeters: 3,
+        lastStopDepthMeters: 3,
+      })
+
+      expect(pt.totalDecoStopMinutes).toBe(single.totalDecoStopMinutes)
+      expect(pt.ttsMinutes).toBeCloseTo(single.ttsMinutes, 6)
+      expect(pt.totalRuntimeMinutes).toBeCloseTo(single.totalRuntimeMinutes, 6)
+      expect(pt.firstStopDepthMeters).toBe(single.firstStopDepthMeters)
+      expect(pt.decoStops).toEqual(single.decoStops)
+
+      const summedStops = Object.values(pt.stopDurationsByDepth).reduce((a, b) => a + b, 0)
+      expect(summedStops).toBe(pt.totalDecoStopMinutes)
+
+      if (sweep.ndlMinutes !== null && pt.bottomTimeMinutes <= sweep.ndlMinutes) {
+        expect(pt.totalDecoStopMinutes).toBe(0)
+      } else {
+        expect(pt.totalDecoStopMinutes).toBeGreaterThan(0)
+      }
+
+      expect(pt.totalDecoStopMinutes).toBeGreaterThanOrEqual(prevDeco)
+      prevDeco = pt.totalDecoStopMinutes
+    }
+  })
+
+  it('validates bottom time sweep bounds', () => {
+    const base = {
+      depthMeters: 30,
+      minBottomTimeMinutes: 10,
+      maxBottomTimeMinutes: 40,
+      bottomTimeStepMinutes: 1,
+      o2Percent: 32,
+      gfLowPercent: 30,
+      gfHighPercent: 85,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+      decoStepSizeMeters: 3,
+      lastStopDepthMeters: 3,
+    }
+    expect(() => calculateDecoVsBottomTimeCurve({ ...base, minBottomTimeMinutes: 0 })).toThrow(
+      RangeError,
+    )
+    expect(() =>
+      calculateDecoVsBottomTimeCurve({ ...base, minBottomTimeMinutes: 30, maxBottomTimeMinutes: 20 }),
+    ).toThrow(RangeError)
+    expect(() =>
+      calculateDecoVsBottomTimeCurve({ ...base, bottomTimeStepMinutes: -1 }),
+    ).toThrow(RangeError)
+  })
+})
+
 
