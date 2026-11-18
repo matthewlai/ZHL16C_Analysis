@@ -8,6 +8,7 @@ import {
   ZHL16C_1_COMPARTMENTS,
 } from '../constants'
 import {
+  calculateNdlCurve,
   calculateNdlMinutes,
   compartmentCeilingPressure,
   compartmentMValue,
@@ -569,3 +570,99 @@ describe('Nitrox behavior, invariants, and edge cases', () => {
     expect(() => planDive({ ...valid, decoStepSizeMeters: -3 })).toThrow(RangeError)
   })
 })
+
+describe('NDL vs depth curve calculation', () => {
+  it('matches point-wise calculateNdlMinutes and decreases monotonically with depth', () => {
+    const curve = calculateNdlCurve({
+      minDepthMeters: 6,
+      maxDepthMeters: 48,
+      depthStepMeters: 3,
+      o2Percent: 21,
+      gfHighPercent: 85,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+    })
+
+    expect(curve.points.length).toBe(15)
+    expect(curve.deepestUnlimitedDepthMeters).toBe(6)
+    expect(curve.shallowestFiniteDepthMeters).toBe(9)
+
+    let prevNdl = Infinity
+    for (const pt of curve.points) {
+      const single = calculateNdlMinutes({
+        depthMeters: pt.depthMeters,
+        bottomTimeMinutes: 10,
+        o2Percent: 21,
+        gfLowPercent: 30,
+        gfHighPercent: 85,
+        ascentRateMPerMin: 10,
+        descentRateMPerMin: 20,
+        decoStepSizeMeters: 3,
+        lastStopDepthMeters: 3,
+      })
+      expect(pt.ndlMinutes).toBe(single)
+
+      if (pt.ndlMinutes !== null) {
+        expect(pt.ndlMinutes).toBeLessThanOrEqual(prevNdl)
+        expect(pt.surfaceGfAtNdl).toBeLessThanOrEqual(0.85 + 1e-6)
+        prevNdl = pt.ndlMinutes
+      }
+    }
+  })
+
+  it('increases NDL across all finite depths as GF High or O2% increases', () => {
+    const gf70 = calculateNdlCurve({
+      minDepthMeters: 12,
+      maxDepthMeters: 42,
+      depthStepMeters: 3,
+      o2Percent: 21,
+      gfHighPercent: 70,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+    })
+    const gf100 = calculateNdlCurve({
+      minDepthMeters: 12,
+      maxDepthMeters: 42,
+      depthStepMeters: 3,
+      o2Percent: 21,
+      gfHighPercent: 100,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+    })
+    const ean32Gf70 = calculateNdlCurve({
+      minDepthMeters: 12,
+      maxDepthMeters: 42,
+      depthStepMeters: 3,
+      o2Percent: 32,
+      gfHighPercent: 70,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+    })
+
+    for (let i = 0; i < gf70.points.length; i++) {
+      const a = gf70.points[i].ndlMinutes
+      const b = gf100.points[i].ndlMinutes
+      const c = ean32Gf70.points[i].ndlMinutes
+      if (a !== null && b !== null) expect(b).toBeGreaterThanOrEqual(a)
+      if (a !== null && c !== null) expect(c).toBeGreaterThanOrEqual(a)
+    }
+  })
+
+  it('validates NDL curve depth range inputs', () => {
+    const base = {
+      minDepthMeters: 10,
+      maxDepthMeters: 40,
+      depthStepMeters: 1,
+      o2Percent: 32,
+      gfHighPercent: 85,
+      ascentRateMPerMin: 10,
+      descentRateMPerMin: 20,
+    }
+    expect(() => calculateNdlCurve({ ...base, minDepthMeters: 0 })).toThrow(RangeError)
+    expect(() => calculateNdlCurve({ ...base, minDepthMeters: 30, maxDepthMeters: 20 })).toThrow(
+      RangeError,
+    )
+    expect(() => calculateNdlCurve({ ...base, depthStepMeters: 0 })).toThrow(RangeError)
+  })
+})
+

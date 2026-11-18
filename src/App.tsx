@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { DecoScheduleTable } from './components/DecoScheduleTable'
 import { DiveProfileChart } from './components/DiveProfileChart'
+import { NdlCurveView } from './components/NdlCurveView'
 import { WATER_DENSITY_PRESETS } from './engine/constants'
 import type { WaterDensityId, Zhl16Variant } from './engine/constants'
 import { depthToPressure, planDive } from './engine/zhl16c'
 import type { GfAnchorMode } from './engine/zhl16c'
+
+type ActiveTab = 'profile' | 'ndl'
 
 const GAS_PRESETS = [
   { label: 'Air 21%', o2: 21 },
@@ -34,6 +37,7 @@ function formatMixLabel(o2Percent: number): string {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('profile')
   const [depthMeters, setDepthMeters] = useState<number>(30)
   const [bottomTimeMinutes, setBottomTimeMinutes] = useState<number>(25)
   const [o2Percent, setO2Percent] = useState<number>(21)
@@ -49,6 +53,12 @@ function App() {
   const [gfAnchorMode, setGfAnchorMode] = useState<GfAnchorMode>('continuous_ceiling')
 
   const barPerMeter = WATER_DENSITY_PRESETS[waterDensityId].barPerMeter
+
+  const handleInspectFromNdl = (depth: number, bottomTime: number) => {
+    setDepthMeters(depth)
+    setBottomTimeMinutes(bottomTime)
+    setActiveTab('profile')
+  }
 
   const plan = useMemo(
     () =>
@@ -116,16 +126,47 @@ function App() {
       <main className="main-content" id="main-content">
         <section className="intro-header" aria-labelledby="page-title">
           <h1 className="page-title" id="page-title">
-            ZH-L16C Nitrox Profile &amp; Decompression Planner
+            ZH-L16C Nitrox Workbench
           </h1>
           <p className="page-subtitle">
-            Explore single-gas Nitrox decompression profiles, no-decompression limits (NDL),
-            and mandatory decompression stops under Bühlmann ZH-L16C with configurable
-            gradient factors and stop geometry. Discretionary safety stops are excluded.
+            Explore single-gas Nitrox decompression profiles, mandatory decompression stops
+            (excluding discretionary safety stops), and no-decompression limits (NDL) across
+            depth under Bühlmann ZH-L16C and gradient factors.
           </p>
         </section>
 
-        <div className="planner-workspace">
+        <nav className="tab-bar" role="tablist" aria-label="Analysis Views">
+          <button
+            id="tab-btn-profile"
+            role="tab"
+            type="button"
+            aria-selected={activeTab === 'profile'}
+            aria-controls="tabpanel-profile"
+            className={`tab-button${activeTab === 'profile' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            Dive Profile &amp; Deco Stops
+          </button>
+          <button
+            id="tab-btn-ndl"
+            role="tab"
+            type="button"
+            aria-selected={activeTab === 'ndl'}
+            aria-controls="tabpanel-ndl"
+            className={`tab-button${activeTab === 'ndl' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('ndl')}
+          >
+            NDL vs. Depth Curve
+          </button>
+        </nav>
+
+        {activeTab === 'profile' ? (
+          <div
+            id="tabpanel-profile"
+            role="tabpanel"
+            aria-labelledby="tab-btn-profile"
+          >
+            <div className="planner-workspace">
           {/* Controls Sidebar */}
           <aside className="controls-panel" id="planner-controls" aria-label="Dive Parameters">
             {/* Group 1: Depth, Bottom Time, Nitrox Mix */}
@@ -632,11 +673,35 @@ function App() {
               </div>
             </section>
 
-            <DiveProfileChart plan={plan} />
+              <DiveProfileChart plan={plan} />
 
-            <DecoScheduleTable plan={plan} />
+              <DecoScheduleTable plan={plan} />
+            </div>
           </div>
-        </div>
+          </div>
+        ) : (
+          <div
+            id="tabpanel-ndl"
+            role="tabpanel"
+            aria-labelledby="tab-btn-ndl"
+          >
+            <NdlCurveView
+              o2Percent={o2Percent}
+              onChangeO2Percent={setO2Percent}
+              gfHighPercent={gfHighPercent}
+              onChangeGfHighPercent={setGfHighPercent}
+              ascentRateMPerMin={ascentRateMPerMin}
+              onChangeAscentRateMPerMin={setAscentRateMPerMin}
+              descentRateMPerMin={descentRateMPerMin}
+              onChangeDescentRateMPerMin={setDescentRateMPerMin}
+              variant={variant}
+              onChangeVariant={setVariant}
+              waterDensityId={waterDensityId}
+              onChangeWaterDensityId={setWaterDensityId}
+              onInspectInProfilePlanner={handleInspectFromNdl}
+            />
+          </div>
+        )}
 
         <details className="notes-panel" id="coefficient-notes">
           <summary className="notes-summary">

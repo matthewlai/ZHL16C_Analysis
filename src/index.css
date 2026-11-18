@@ -208,6 +208,53 @@ body {
   line-height: 1.55;
 }
 
+/* Primary Tab Bar */
+.tab-bar {
+  display: inline-flex;
+  align-self: flex-start;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-hairline);
+  border-radius: 9px;
+}
+
+.tab-button {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 500;
+  padding: 0.45rem 0.95rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+}
+
+.tab-button.is-active {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--border-hairline);
+  box-shadow: 0 1px 2px hsla(212, 42%, 12%, 0.06);
+}
+
+.tab-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 /* Workspace Layout */
 .planner-workspace {
   display: grid;
@@ -585,6 +632,84 @@ body {
 .legend-swatch.swatch-gflow {
   border-top: 2px dashed var(--chart-gflow-stroke);
   height: 0;
+}
+
+.legend-swatch.swatch-gf100 {
+  border-top: 2px dashed var(--chart-gflow-stroke);
+  height: 0;
+}
+
+.legend-swatch.swatch-air {
+  border-top: 2px dotted var(--text-muted);
+  height: 0;
+}
+
+.legend-swatch.swatch-mod {
+  border-top: 2px dashed var(--chart-ceiling-stroke);
+  height: 0;
+}
+
+.chart-legend-below {
+  margin-bottom: 0.75rem;
+}
+
+.chart-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-help {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.checkbox-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.81rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  accent-color: var(--accent-primary);
+  margin: 0;
+  cursor: pointer;
+}
+
+.table-action-btn {
+  appearance: none;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background-color: var(--accent-tint);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.table-action-btn:hover {
+  border-color: var(--accent-primary);
+}
+
+.table-action-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }
 
 /* SVG Profile Chart */

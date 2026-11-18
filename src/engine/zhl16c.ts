@@ -1132,3 +1132,263 @@ export function planDive(rawInput: DivePlanInput): DivePlanResult {
     samples,
   }
 }
+
+export interface NdlCurveInput {
+  /** Minimum sweep depth in meters (> 0) */
+  readonly minDepthMeters: number
+  /** Maximum sweep depth in meters (>= minDepthMeters) */
+  readonly maxDepthMeters: number
+  /** Depth increment in meters (> 0, e.g. 1 or 3) */
+  readonly depthStepMeters: number
+  /** Breathing gas O2 percentage (21 to 100) */
+  readonly o2Percent: number
+  /** Gradient Factor High percentage (1 to 100) */
+  readonly gfHighPercent: number
+  /** Ascent rate in m/min (> 0) */
+  readonly ascentRateMPerMin: number
+  /** Descent rate in m/min (> 0) */
+  readonly descentRateMPerMin: number
+  /** ZH-L16C Compartment 1 variant ('ZHL16C_1B' = 4.0 min default, 'ZHL16C_1' = 5.0 min) */
+  readonly variant?: Zhl16Variant
+  /** Atmospheric surface pressure in bar (default 1.01325 bar) */
+  readonly surfacePressureBar?: number
+  /** Hydrostatic pressure gradient in bar/m (default 0.10 bar/m) */
+  readonly barPerMeter?: number
+  /** Alveolar water vapor pressure in bar (default 0.0627 bar) */
+  readonly waterVaporPressureBar?: number
+  /** Surface equilibrium N2 fraction before the dive (default 0.79) */
+  readonly surfaceFN2?: number
+}
+
+export interface NdlCurvePoint {
+  /** Depth in meters */
+  readonly depthMeters: number
+  /** Whole-minute NDL (total bottom time from t=0), or null if unlimited */
+  readonly ndlMinutes: number | null
+  /** True when tissues never exceed GF High upon direct ascent at infinite exposure */
+  readonly isUnlimited: boolean
+  /** 1-based leading compartment (1..16) controlling surfacing at the NDL boundary */
+  readonly leadingCompartment: number
+  /** Surfacing GF fraction achieved at NDL (0..gfHigh) */
+  readonly surfaceGfAtNdl: number
+  /** Inspired O2 partial pressure at this depth (bar) */
+  readonly bottomPpO2Bar: number
+}
+
+export interface NdlCurveResult {
+  readonly input: Required<NdlCurveInput>
+  readonly points: readonly NdlCurvePoint[]
+  /** Deepest swept depth where NDL is still unlimited, or null if none */
+  readonly deepestUnlimitedDepthMeters: number | null
+  /** Shallowest swept depth with a finite NDL, or null if all points are unlimited */
+  readonly shallowestFiniteDepthMeters: number | null
+  /** Maximum Operating Depth (m) for 1.4 bar ppO2 */
+  readonly mod14Meters: number
+  /** Maximum Operating Depth (m) for 1.6 bar ppO2 */
+  readonly mod16Meters: number
+}
+
+function evaluateSurfaceAfterDirectAscent(
+  bottomTimeMinutes: number,
+  cfg: NormalizedConfig,
+): { ok: boolean; leadingCompartment: number; surfaceGf: number } {
+  const { depthMeters, descentRateMPerMin, surfacePressureBar, barPerMeter, waterVaporPressureBar } =
+    cfg.input
+  const descentDuration = depthMeters / descentRateMPerMin
+  const effectiveBottom = Math.max(bottomTimeMinutes, descentDuration)
+  const flatDuration = Math.max(0, effectiveBottom - descentDuration)
+
+  const initialState = createSurfaceTissueState(
+    surfacePressureBar,
+    cfg.input.surfaceFN2,
+    waterVaporPressureBar,
+  )
+  const bottomBar = depthToPressure(depthMeters, surfacePressureBar, barPerMeter)
+  const afterDescent = stepLinearRamp(
+    initialState,
+    surfacePressureBar,
+    bottomBar,
+    cfg.fN2,
+    descentDuration,
+    cfg.compartments,
+    waterVaporPressureBar,
+  )
+  const afterBottom = stepConstantDepth(
+    afterDescent,
+    bottomBar,
+    cfg.fN2,
+    flatDuration,
+    cfg.compartments,
+    waterVaporPressureBar,
+  )
+  const { endState } = simulateAscentLeg(afterBottom, depthMeters, 0, cfg)
+  const { ceilingPressureBar, leadingCompartment } = evaluateTissueCeiling(
+    endState,
+    cfg.compartments,
+    cfg.gfHigh,
+  )
+  const { gf99 } = evaluateInstantaneousGf(endState, surfacePressureBar, cfg.compartments)
+  return {
+    ok: ceilingPressureBar <= surfacePressureBar + EPSILON,
+    leadingCompartment,
+    surfaceGf: gf99,
+  }
+}
+
+/**
+ * Compute an NDL-vs-depth curve across `[minDepthMeters, maxDepthMeters]`
+ * for a given `gfHighPercent`, breathing mix, and ascent/descent rates.
+ */
+export function calculateNdlCurve(rawInput: NdlCurveInput): NdlCurveResult {
+  if (!Number.isFinite(rawInput.minDepthMeters) || rawInput.minDepthMeters <= 0) {
+    throw new RangeError('minDepthMeters must be greater than 0')
+  }
+  if (
+    !Number.isFinite(rawInput.maxDepthMeters) ||
+    rawInput.maxDepthMeters < rawInput.minDepthMeters
+  ) {
+    throw new RangeError('maxDepthMeters must be >= minDepthMeters')
+  }
+  if (!Number.isFinite(rawInput.depthStepMeters) || rawInput.depthStepMeters <= 0) {
+    throw new RangeError('depthStepMeters must be greater than 0')
+  }
+
+  const normalizedBase = normalizeInput({
+    depthMeters: rawInput.minDepthMeters,
+    bottomTimeMinutes: 10,
+    o2Percent: rawInput.o2Percent,
+    gfLowPercent: rawInput.gfHighPercent,
+    gfHighPercent: rawInput.gfHighPercent,
+    ascentRateMPerMin: rawInput.ascentRateMPerMin,
+    descentRateMPerMin: rawInput.descentRateMPerMin,
+    decoStepSizeMeters: 3,
+    lastStopDepthMeters: 3,
+    variant: rawInput.variant,
+    surfacePressureBar: rawInput.surfacePressureBar,
+    barPerMeter: rawInput.barPerMeter,
+    waterVaporPressureBar: rawInput.waterVaporPressureBar,
+    surfaceFN2: rawInput.surfaceFN2,
+  })
+
+  const fullInput: Required<NdlCurveInput> = {
+    minDepthMeters: rawInput.minDepthMeters,
+    maxDepthMeters: rawInput.maxDepthMeters,
+    depthStepMeters: rawInput.depthStepMeters,
+    o2Percent: normalizedBase.input.o2Percent,
+    gfHighPercent: normalizedBase.input.gfHighPercent,
+    ascentRateMPerMin: normalizedBase.input.ascentRateMPerMin,
+    descentRateMPerMin: normalizedBase.input.descentRateMPerMin,
+    variant: normalizedBase.input.variant,
+    surfacePressureBar: normalizedBase.input.surfacePressureBar,
+    barPerMeter: normalizedBase.input.barPerMeter,
+    waterVaporPressureBar: normalizedBase.input.waterVaporPressureBar,
+    surfaceFN2: normalizedBase.input.surfaceFN2,
+  }
+
+  const points: NdlCurvePoint[] = []
+  const maxSteps = 500
+  let stepCount = 0
+
+  for (
+    let d = fullInput.minDepthMeters;
+    d <= fullInput.maxDepthMeters + EPSILON && stepCount < maxSteps;
+    d = Math.round((d + fullInput.depthStepMeters) * 1e6) / 1e6, stepCount++
+  ) {
+    const depthCfg: NormalizedConfig = {
+      ...normalizedBase,
+      input: {
+        ...normalizedBase.input,
+        depthMeters: d,
+      },
+    }
+
+    const eqEval = evaluateSurfaceAfterDirectAscent(10000, depthCfg)
+    const bottomBar = depthToPressure(d, fullInput.surfacePressureBar, fullInput.barPerMeter)
+    const bottomPpO2Bar = bottomBar * normalizedBase.fO2
+
+    if (eqEval.ok) {
+      points.push({
+        depthMeters: d,
+        ndlMinutes: null,
+        isUnlimited: true,
+        leadingCompartment: eqEval.leadingCompartment,
+        surfaceGfAtNdl: eqEval.surfaceGf,
+        bottomPpO2Bar,
+      })
+      continue
+    }
+
+    const minTime = Math.ceil(d / fullInput.descentRateMPerMin)
+    const minEval = evaluateSurfaceAfterDirectAscent(minTime, depthCfg)
+    if (!minEval.ok) {
+      points.push({
+        depthMeters: d,
+        ndlMinutes: 0,
+        isUnlimited: false,
+        leadingCompartment: minEval.leadingCompartment,
+        surfaceGfAtNdl: minEval.surfaceGf,
+        bottomPpO2Bar,
+      })
+      continue
+    }
+
+    let lo = minTime
+    let hi = minTime + 1
+    while (hi < 10000 && evaluateSurfaceAfterDirectAscent(hi, depthCfg).ok) {
+      lo = hi
+      hi *= 2
+    }
+    hi = Math.min(hi, 10000)
+
+    while (lo + 1 < hi) {
+      const mid = Math.floor(0.5 * (lo + hi))
+      if (evaluateSurfaceAfterDirectAscent(mid, depthCfg).ok) {
+        lo = mid
+      } else {
+        hi = mid
+      }
+    }
+
+    const ndlEval = evaluateSurfaceAfterDirectAscent(lo, depthCfg)
+    points.push({
+      depthMeters: d,
+      ndlMinutes: lo,
+      isUnlimited: false,
+      leadingCompartment: ndlEval.leadingCompartment,
+      surfaceGfAtNdl: ndlEval.surfaceGf,
+      bottomPpO2Bar,
+    })
+  }
+
+  let deepestUnlimitedDepthMeters: number | null = null
+  let shallowestFiniteDepthMeters: number | null = null
+
+  for (const pt of points) {
+    if (pt.isUnlimited) {
+      deepestUnlimitedDepthMeters = pt.depthMeters
+    } else if (shallowestFiniteDepthMeters === null) {
+      shallowestFiniteDepthMeters = pt.depthMeters
+    }
+  }
+
+  const mod14Meters = pressureToDepth(
+    1.4 / normalizedBase.fO2,
+    fullInput.surfacePressureBar,
+    fullInput.barPerMeter,
+  )
+  const mod16Meters = pressureToDepth(
+    1.6 / normalizedBase.fO2,
+    fullInput.surfacePressureBar,
+    fullInput.barPerMeter,
+  )
+
+  return {
+    input: fullInput,
+    points,
+    deepestUnlimitedDepthMeters,
+    shallowestFiniteDepthMeters,
+    mod14Meters,
+    mod16Meters,
+  }
+}
+
