@@ -3,6 +3,7 @@ import { DecoBottomTimeView } from './components/DecoBottomTimeView'
 import { DecoScheduleTable } from './components/DecoScheduleTable'
 import { DiveProfileChart } from './components/DiveProfileChart'
 import { NdlCurveView } from './components/NdlCurveView'
+import { NumericInput } from './components/NumericInput'
 import { WATER_DENSITY_PRESETS } from './engine/constants'
 import type { WaterDensityId, Zhl16Variant } from './engine/constants'
 import { depthToPressure, planDive } from './engine/zhl16c'
@@ -25,11 +26,6 @@ const GF_PRESETS = [
   { label: '50 / 85', low: 50, high: 85 },
   { label: '100 / 100', low: 100, high: 100 },
 ] as const
-
-function clampNumber(value: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
-  return Math.min(max, Math.max(min, value))
-}
 
 function formatMixLabel(o2Percent: number): string {
   if (o2Percent === 21) return 'Air (21% O₂)'
@@ -207,17 +203,13 @@ function App() {
                     onChange={(e) => setDepthMeters(Number(e.target.value))}
                   />
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-depth"
-                      className="number-input"
-                      type="number"
                       min={1}
                       max={150}
                       step={1}
                       value={depthMeters}
-                      onChange={(e) =>
-                        setDepthMeters(clampNumber(Number(e.target.value), 1, 150, depthMeters))
-                      }
+                      onChange={setDepthMeters}
                     />
                     <span className="unit-suffix">m</span>
                   </div>
@@ -246,19 +238,13 @@ function App() {
                     onChange={(e) => setBottomTimeMinutes(Number(e.target.value))}
                   />
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-bottom-time"
-                      className="number-input"
-                      type="number"
                       min={1}
                       max={600}
                       step={1}
                       value={bottomTimeMinutes}
-                      onChange={(e) =>
-                        setBottomTimeMinutes(
-                          clampNumber(Number(e.target.value), 1, 600, bottomTimeMinutes),
-                        )
-                      }
+                      onChange={setBottomTimeMinutes}
                     />
                     <span className="unit-suffix">min</span>
                   </div>
@@ -290,17 +276,13 @@ function App() {
                     onChange={(e) => setO2Percent(Number(e.target.value))}
                   />
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-o2"
-                      className="number-input"
-                      type="number"
                       min={21}
                       max={100}
                       step={1}
                       value={o2Percent}
-                      onChange={(e) =>
-                        setO2Percent(clampNumber(Number(e.target.value), 21, 100, o2Percent))
-                      }
+                      onChange={setO2Percent}
                     />
                     <span className="unit-suffix">%</span>
                   </div>
@@ -356,19 +338,13 @@ function App() {
                     onChange={(e) => setGfLowPercent(Number(e.target.value))}
                   />
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-gf-low"
-                      className="number-input"
-                      type="number"
                       min={1}
                       max={100}
                       step={1}
                       value={gfLowPercent}
-                      onChange={(e) =>
-                        setGfLowPercent(
-                          clampNumber(Number(e.target.value), 1, 100, gfLowPercent),
-                        )
-                      }
+                      onChange={setGfLowPercent}
                     />
                     <span className="unit-suffix">%</span>
                   </div>
@@ -394,19 +370,13 @@ function App() {
                     onChange={(e) => setGfHighPercent(Number(e.target.value))}
                   />
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-gf-high"
-                      className="number-input"
-                      type="number"
                       min={1}
                       max={100}
                       step={1}
                       value={gfHighPercent}
-                      onChange={(e) =>
-                        setGfHighPercent(
-                          clampNumber(Number(e.target.value), 1, 100, gfHighPercent),
-                        )
-                      }
+                      onChange={setGfHighPercent}
                     />
                     <span className="unit-suffix">%</span>
                   </div>
@@ -448,19 +418,13 @@ function App() {
                     Ascent Rate
                   </label>
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-ascent-rate"
-                      className="number-input"
-                      type="number"
                       min={1}
-                      max={30}
+                      max={60}
                       step={1}
                       value={ascentRateMPerMin}
-                      onChange={(e) =>
-                        setAscentRateMPerMin(
-                          clampNumber(Number(e.target.value), 1, 60, ascentRateMPerMin),
-                        )
-                      }
+                      onChange={setAscentRateMPerMin}
                     />
                     <span className="unit-suffix">m/min</span>
                   </div>
@@ -471,19 +435,13 @@ function App() {
                     Descent Rate
                   </label>
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-descent-rate"
-                      className="number-input"
-                      type="number"
                       min={1}
                       max={60}
                       step={1}
                       value={descentRateMPerMin}
-                      onChange={(e) =>
-                        setDescentRateMPerMin(
-                          clampNumber(Number(e.target.value), 1, 60, descentRateMPerMin),
-                        )
-                      }
+                      onChange={setDescentRateMPerMin}
                     />
                     <span className="unit-suffix">m/min</span>
                   </div>
@@ -494,19 +452,13 @@ function App() {
                     Deco Step Size
                   </label>
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-step-size"
-                      className="number-input"
-                      type="number"
                       min={0.5}
-                      max={15}
+                      max={30}
                       step={0.5}
                       value={decoStepSizeMeters}
-                      onChange={(e) =>
-                        setDecoStepSizeMeters(
-                          clampNumber(Number(e.target.value), 0.5, 30, decoStepSizeMeters),
-                        )
-                      }
+                      onChange={setDecoStepSizeMeters}
                     />
                     <span className="unit-suffix">m</span>
                   </div>
@@ -517,19 +469,13 @@ function App() {
                     Last Stop Depth
                   </label>
                   <div className="number-unit-wrap">
-                    <input
+                    <NumericInput
                       id="input-last-stop"
-                      className="number-input"
-                      type="number"
                       min={1}
-                      max={15}
+                      max={30}
                       step={0.5}
                       value={lastStopDepthMeters}
-                      onChange={(e) =>
-                        setLastStopDepthMeters(
-                          clampNumber(Number(e.target.value), 1, 30, lastStopDepthMeters),
-                        )
-                      }
+                      onChange={setLastStopDepthMeters}
                     />
                     <span className="unit-suffix">m</span>
                   </div>

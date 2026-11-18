@@ -3,6 +3,7 @@ import { WATER_DENSITY_PRESETS, getCompartments } from '../engine/constants'
 import type { WaterDensityId, Zhl16Variant } from '../engine/constants'
 import { calculateNdlCurve } from '../engine/zhl16c'
 import type { NdlCurvePoint } from '../engine/zhl16c'
+import { NumericInput } from './NumericInput'
 
 interface NdlCurveViewProps {
   readonly o2Percent: number
@@ -39,11 +40,6 @@ const PAD_TOP = 24
 const PAD_BOTTOM = 42
 const PLOT_W = SVG_WIDTH - PAD_LEFT - PAD_RIGHT
 const PLOT_H = SVG_HEIGHT - PAD_TOP - PAD_BOTTOM
-
-function clampNumber(value: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
-  return Math.min(max, Math.max(min, value))
-}
 
 function chooseTickStep(span: number, targetCount: number): number {
   const raw = span / Math.max(1, targetCount)
@@ -357,19 +353,13 @@ export function NdlCurveView({
                 onChange={(e) => onChangeGfHighPercent(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-gf-high"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={100}
                   step={1}
                   value={gfHighPercent}
-                  onChange={(e) =>
-                    onChangeGfHighPercent(
-                      clampNumber(Number(e.target.value), 1, 100, gfHighPercent),
-                    )
-                  }
+                  onChange={onChangeGfHighPercent}
                 />
                 <span className="unit-suffix">%</span>
               </div>
@@ -421,17 +411,13 @@ export function NdlCurveView({
                 onChange={(e) => onChangeO2Percent(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-o2"
-                  className="number-input"
-                  type="number"
                   min={21}
                   max={100}
                   step={1}
                   value={o2Percent}
-                  onChange={(e) =>
-                    onChangeO2Percent(clampNumber(Number(e.target.value), 21, 100, o2Percent))
-                  }
+                  onChange={onChangeO2Percent}
                 />
                 <span className="unit-suffix">%</span>
               </div>
@@ -464,16 +450,13 @@ export function NdlCurveView({
                 Min Depth
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-min-depth"
-                  className="number-input"
-                  type="number"
                   min={3}
                   max={40}
                   step={1}
                   value={minDepthMeters}
-                  onChange={(e) => {
-                    const next = clampNumber(Number(e.target.value), 3, 40, minDepthMeters)
+                  onChange={(next) => {
                     setMinDepthMeters(next)
                     if (next >= maxDepthMeters) setMaxDepthMeters(next + 10)
                   }}
@@ -487,19 +470,13 @@ export function NdlCurveView({
                 Max Depth
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-max-depth"
-                  className="number-input"
-                  type="number"
                   min={minDepthMeters + 3}
                   max={70}
                   step={1}
                   value={maxDepthMeters}
-                  onChange={(e) =>
-                    setMaxDepthMeters(
-                      clampNumber(Number(e.target.value), minDepthMeters + 3, 70, maxDepthMeters),
-                    )
-                  }
+                  onChange={setMaxDepthMeters}
                 />
                 <span className="unit-suffix">m</span>
               </div>
@@ -510,19 +487,13 @@ export function NdlCurveView({
                 Ascent Rate
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-ascent-rate"
-                  className="number-input"
-                  type="number"
                   min={1}
-                  max={30}
+                  max={60}
                   step={1}
                   value={ascentRateMPerMin}
-                  onChange={(e) =>
-                    onChangeAscentRateMPerMin(
-                      clampNumber(Number(e.target.value), 1, 60, ascentRateMPerMin),
-                    )
-                  }
+                  onChange={onChangeAscentRateMPerMin}
                 />
                 <span className="unit-suffix">m/min</span>
               </div>
@@ -533,19 +504,13 @@ export function NdlCurveView({
                 Descent Rate
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="ndl-input-descent-rate"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={60}
                   step={1}
                   value={descentRateMPerMin}
-                  onChange={(e) =>
-                    onChangeDescentRateMPerMin(
-                      clampNumber(Number(e.target.value), 1, 60, descentRateMPerMin),
-                    )
-                  }
+                  onChange={onChangeDescentRateMPerMin}
                 />
                 <span className="unit-suffix">m/min</span>
               </div>

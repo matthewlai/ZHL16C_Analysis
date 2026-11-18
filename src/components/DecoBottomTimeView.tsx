@@ -3,6 +3,7 @@ import { WATER_DENSITY_PRESETS } from '../engine/constants'
 import type { WaterDensityId, Zhl16Variant } from '../engine/constants'
 import { calculateDecoVsBottomTimeCurve, depthToPressure } from '../engine/zhl16c'
 import type { DecoBottomTimePoint, GfAnchorMode } from '../engine/zhl16c'
+import { NumericInput } from './NumericInput'
 
 interface DecoBottomTimeViewProps {
   readonly depthMeters: number
@@ -64,11 +65,6 @@ const PAD_TOP = 24
 const PAD_BOTTOM = 42
 const PLOT_W = SVG_WIDTH - PAD_LEFT - PAD_RIGHT
 const PLOT_H = SVG_HEIGHT - PAD_TOP - PAD_BOTTOM
-
-function clampNumber(value: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
-  return Math.min(max, Math.max(min, value))
-}
 
 function chooseTickStep(span: number, targetCount: number): number {
   const raw = span / Math.max(1, targetCount)
@@ -379,17 +375,13 @@ export function DecoBottomTimeView({
                 onChange={(e) => onChangeDepthMeters(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-depth"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={150}
                   step={1}
                   value={depthMeters}
-                  onChange={(e) =>
-                    onChangeDepthMeters(clampNumber(Number(e.target.value), 1, 150, depthMeters))
-                  }
+                  onChange={onChangeDepthMeters}
                 />
                 <span className="unit-suffix">m</span>
               </div>
@@ -415,17 +407,13 @@ export function DecoBottomTimeView({
                 onChange={(e) => onChangeO2Percent(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-o2"
-                  className="number-input"
-                  type="number"
                   min={21}
                   max={100}
                   step={1}
                   value={o2Percent}
-                  onChange={(e) =>
-                    onChangeO2Percent(clampNumber(Number(e.target.value), 21, 100, o2Percent))
-                  }
+                  onChange={onChangeO2Percent}
                 />
                 <span className="unit-suffix">%</span>
               </div>
@@ -477,19 +465,13 @@ export function DecoBottomTimeView({
                 onChange={(e) => onChangeGfLowPercent(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-gf-low"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={100}
                   step={1}
                   value={gfLowPercent}
-                  onChange={(e) =>
-                    onChangeGfLowPercent(
-                      clampNumber(Number(e.target.value), 1, 100, gfLowPercent),
-                    )
-                  }
+                  onChange={onChangeGfLowPercent}
                 />
                 <span className="unit-suffix">%</span>
               </div>
@@ -515,19 +497,13 @@ export function DecoBottomTimeView({
                 onChange={(e) => onChangeGfHighPercent(Number(e.target.value))}
               />
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-gf-high"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={100}
                   step={1}
                   value={gfHighPercent}
-                  onChange={(e) =>
-                    onChangeGfHighPercent(
-                      clampNumber(Number(e.target.value), 1, 100, gfHighPercent),
-                    )
-                  }
+                  onChange={onChangeGfHighPercent}
                 />
                 <span className="unit-suffix">%</span>
               </div>
@@ -567,21 +543,13 @@ export function DecoBottomTimeView({
                 Min Bottom Time
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-min-bt"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={120}
                   step={1}
                   value={minBottomTimeMinutes}
-                  onChange={(e) => {
-                    const next = clampNumber(
-                      Number(e.target.value),
-                      1,
-                      120,
-                      minBottomTimeMinutes,
-                    )
+                  onChange={(next) => {
                     setMinBottomTimeMinutes(next)
                     if (next >= maxBottomTimeMinutes) setMaxBottomTimeMinutes(next + 15)
                   }}
@@ -595,24 +563,13 @@ export function DecoBottomTimeView({
                 Max Bottom Time
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-max-bt"
-                  className="number-input"
-                  type="number"
                   min={minBottomTimeMinutes + 1}
                   max={240}
                   step={5}
                   value={maxBottomTimeMinutes}
-                  onChange={(e) =>
-                    setMaxBottomTimeMinutes(
-                      clampNumber(
-                        Number(e.target.value),
-                        minBottomTimeMinutes + 1,
-                        240,
-                        maxBottomTimeMinutes,
-                      ),
-                    )
-                  }
+                  onChange={setMaxBottomTimeMinutes}
                 />
                 <span className="unit-suffix">min</span>
               </div>
@@ -623,19 +580,13 @@ export function DecoBottomTimeView({
                 Deco Step Size
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-step-size"
-                  className="number-input"
-                  type="number"
                   min={0.5}
-                  max={15}
+                  max={30}
                   step={0.5}
                   value={decoStepSizeMeters}
-                  onChange={(e) =>
-                    onChangeDecoStepSizeMeters(
-                      clampNumber(Number(e.target.value), 0.5, 30, decoStepSizeMeters),
-                    )
-                  }
+                  onChange={onChangeDecoStepSizeMeters}
                 />
                 <span className="unit-suffix">m</span>
               </div>
@@ -646,19 +597,13 @@ export function DecoBottomTimeView({
                 Last Stop Depth
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-last-stop"
-                  className="number-input"
-                  type="number"
                   min={1}
-                  max={15}
+                  max={30}
                   step={0.5}
                   value={lastStopDepthMeters}
-                  onChange={(e) =>
-                    onChangeLastStopDepthMeters(
-                      clampNumber(Number(e.target.value), 1, 30, lastStopDepthMeters),
-                    )
-                  }
+                  onChange={onChangeLastStopDepthMeters}
                 />
                 <span className="unit-suffix">m</span>
               </div>
@@ -669,19 +614,13 @@ export function DecoBottomTimeView({
                 Ascent Rate
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-ascent-rate"
-                  className="number-input"
-                  type="number"
                   min={1}
-                  max={30}
+                  max={60}
                   step={1}
                   value={ascentRateMPerMin}
-                  onChange={(e) =>
-                    onChangeAscentRateMPerMin(
-                      clampNumber(Number(e.target.value), 1, 60, ascentRateMPerMin),
-                    )
-                  }
+                  onChange={onChangeAscentRateMPerMin}
                 />
                 <span className="unit-suffix">m/min</span>
               </div>
@@ -692,19 +631,13 @@ export function DecoBottomTimeView({
                 Descent Rate
               </label>
               <div className="number-unit-wrap">
-                <input
+                <NumericInput
                   id="decobt-input-descent-rate"
-                  className="number-input"
-                  type="number"
                   min={1}
                   max={60}
                   step={1}
                   value={descentRateMPerMin}
-                  onChange={(e) =>
-                    onChangeDescentRateMPerMin(
-                      clampNumber(Number(e.target.value), 1, 60, descentRateMPerMin),
-                    )
-                  }
+                  onChange={onChangeDescentRateMPerMin}
                 />
                 <span className="unit-suffix">m/min</span>
               </div>
